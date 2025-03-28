@@ -3,10 +3,8 @@ import styled from 'styled-components';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { FiPlusCircle, FiEdit2, FiTrash2, FiRepeat, FiCalendar, FiDollarSign, FiClock, FiAlertCircle, FiList } from 'react-icons/fi';
-import { useAuth } from '../context/AuthContext';
 
 const RecurringExpenses = () => {
-  const { currentUser } = useAuth();
   const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);

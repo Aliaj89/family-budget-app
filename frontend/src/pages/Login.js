@@ -13,6 +13,10 @@ const Login = () => {
     return <Navigate to="/dashboard" />;
   }
 
+  const handleGoogleLogin = () => {
+    window.location.href = `${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/google`;
+  };
+
   return (
     <LoginContainer>
       <LoginCard>
@@ -59,10 +63,16 @@ const Login = () => {
         </Features>
         
         <LoginButtonsContainer>
-          <LoginButton href={`${process.env.REACT_APP_API_URL || 'http://localhost:5001/api'}/auth/google`}>
-            <FcGoogle />
-            <ButtonText>Sign in with Google</ButtonText>
-          </LoginButton>
+          <GoogleLoginButton onClick={handleGoogleLogin}>
+            <FcGoogle /> Login with Google
+          </GoogleLoginButton>
+          
+          <LoginOptions>
+            <p>Don't have an account?</p>
+            <p>
+              Sign in with Google above to create one automatically.
+            </p>
+          </LoginOptions>
         </LoginButtonsContainer>
         
         <PrivacyInfo>
@@ -173,7 +183,7 @@ const LoginButtonsContainer = styled.div`
   margin-bottom: 1.5rem;
 `;
 
-const LoginButton = styled.a`
+const GoogleLoginButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
@@ -195,10 +205,11 @@ const LoginButton = styled.a`
   }
 `;
 
-const ButtonText = styled.span`
-  font-size: ${({ theme }) => theme.fontSizes.md};
-  font-weight: ${({ theme }) => theme.fontWeights.medium};
-  color: ${({ theme }) => theme.colors.text};
+const LoginOptions = styled.div`
+  text-align: center;
+  font-size: ${({ theme }) => theme.fontSizes.sm};
+  color: ${({ theme }) => theme.colors.textLight};
+  margin-bottom: 0;
 `;
 
 const PrivacyInfo = styled.p`

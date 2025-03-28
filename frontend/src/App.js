@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import axios from 'axios';
+import React from 'react';
+import { Navigate, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
+import GlobalStyle from './styles/GlobalStyle';
+import theme from './styles/theme';
+import { AuthProvider } from './context/AuthContext';
 
 // Components
 import Dashboard from './pages/Dashboard';
@@ -12,13 +14,12 @@ import RecurringExpenses from './pages/RecurringExpenses';
 import Login from './pages/Login';
 import Navigation from './components/Navigation';
 import PrivateRoute from './components/PrivateRoute';
-import GlobalStyle from './styles/GlobalStyle';
-import { theme } from './styles/theme';
 
 // Context
 import { AuthProvider } from './context/AuthContext';
 
 // Configure axios defaults
+import axios from 'axios';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 axios.defaults.withCredentials = true;
 

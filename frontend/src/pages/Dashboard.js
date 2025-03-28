@@ -22,48 +22,51 @@ const Dashboard = () => {
   const [monthlySummary, setMonthlySummary] = useState({});
   const [timeFrame, setTimeFrame] = useState('month'); // 'month', 'quarter', 'year'
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        setLoading(true);
-        
-        // Get current date ranges for queries
-        const now = new Date();
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-        
-        // Fetch categories
-        const categoriesResponse = await axios.get('/categories');
-        setCategories(categoriesResponse.data);
-        
-        // Fetch recent expenses
-        const expensesResponse = await axios.get('/expenses', {
-          params: {
-            limit: 5,
-            sort: '-date'
-          }
-        });
-        setExpenses(expensesResponse.data);
-        
-        // Fetch monthly summary
-        const summaryResponse = await axios.get('/expenses/summary', {
-          params: {
-            startDate: startOfMonth,
-            endDate: endOfMonth
-          }
-        });
-        setMonthlySummary(summaryResponse.data);
-        setMonthlyTotal(summaryResponse.data.total || 0);
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load dashboard data. Please try again later.');
-        setLoading(false);
-      }
-    };
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch expenses
+      const expensesResponse = await axios.get('/expenses');
+      setExpenses(expensesResponse.data);
+      
+      // Fetch categories - we need these for reference even if not used directly in the component
+      const categoriesResponse = await axios.get('/categories');
+      setCategories(categoriesResponse.data);
+      
+      // Process expense data with category information
+      const processedExpenses = expensesResponse.data.map(expense => {
+        const category = categoriesResponse.data.find(cat => cat._id === expense.category);
+        return {
+          ...expense,
+          categoryName: category ? category.name : 'Uncategorized',
+          categoryColor: category ? category.color : '#CCCCCC',
+          categoryIcon: category ? category.icon : 'FiHelpCircle'
+        };
+      });
+      
+      setExpenses(processedExpenses);
+      
+      // Fetch monthly stats
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      
+      const monthlyStatsResponse = await axios.get(`/expenses/stats/${year}/${month}`);
+      setMonthlySummary(monthlyStatsResponse.data);
+      setMonthlyTotal(monthlyStatsResponse.data.total || 0);
+      
+      setLoading(false);
+    } catch (err) {
+      console.error("Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data. Please try again.");
+      setLoading(false);
+    }
+  };
 
-    fetchDashboardData();
+  useEffect(() => {
+    fetchData();
   }, [timeFrame]);
 
   // Prepare chart data
@@ -344,7 +347,7 @@ const Dashboard = () => {
               <ExpenseCardDetails>
                 <ExpenseCardTitle>{expense.description}</ExpenseCardTitle>
                 <ExpenseCardCategory>
-                  {expense.category?.name || 'Uncategorized'}
+                  {expense.categoryName}
                 </ExpenseCardCategory>
                 <ExpenseCardDate>
                   <FiCalendar /> {formatDate(expense.date)}

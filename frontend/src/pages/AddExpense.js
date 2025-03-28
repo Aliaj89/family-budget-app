@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -15,6 +15,7 @@ const AddExpense = () => {
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [currency, setCurrency] = useState(currentUser?.baseCurrency || 'USD');
+  const [currencies] = useState(['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CNY', 'INR']);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState('monthly');
   const [endDate, setEndDate] = useState('');
@@ -22,36 +23,17 @@ const AddExpense = () => {
   const [billImagePreview, setBillImagePreview] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState(null);
+  const [commonDescriptions] = useState([
+    'Groceries', 'Rent', 'Electricity Bill', 'Water Bill', 'Internet Bill',
+    'Phone Bill', 'Gas', 'Restaurant', 'Coffee', 'Transportation',
+    'Entertainment', 'Clothing', 'Healthcare', 'Education', 'Travel'
+  ]);
   
   // Page state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [categories, setCategories] = useState([]);
-  const [currencies, setCurrencies] = useState([
-    'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'INR', 'SAR'
-  ]);
-  const [commonDescriptions, setCommonDescriptions] = useState([
-    'Grocery shopping', 
-    'Rent payment', 
-    'Utilities bill', 
-    'Internet bill',
-    'Phone bill',
-    'Gas/Fuel',
-    'Restaurant meal',
-    'Coffee',
-    'Public transportation',
-    'Taxi/Uber',
-    'Clothing purchase',
-    'Medical expense',
-    'Insurance payment',
-    'Home repair',
-    'Entertainment',
-    'Subscription fee',
-    'Education expense',
-    'Gift purchase',
-    'Charity donation'
-  ]);
   
   // Fetch categories on component mount
   useEffect(() => {
@@ -233,32 +215,20 @@ const AddExpense = () => {
     }
   };
   
-  // Group categories by parent
-  const groupedCategories = categories.reduce((acc, category) => {
-    if (!category.parent) {
-      // Main category
-      if (!acc[category._id]) {
-        acc[category._id] = {
-          main: category,
-          sub: []
-        };
-      } else {
-        acc[category._id].main = category;
-      }
-    } else {
-      // Subcategory
-      if (!acc[category.parent]) {
-        acc[category.parent] = {
-          main: null,
-          sub: [category]
-        };
-      } else {
-        acc[category.parent].sub.push(category);
-      }
-    }
+  // Create a grouped view of categories for UI rendering
+  const categoryGroups = useMemo(() => {
+    const groups = {};
     
-    return acc;
-  }, {});
+    categories.forEach(category => {
+      const firstLetter = category.name.charAt(0).toUpperCase();
+      if (!groups[firstLetter]) {
+        groups[firstLetter] = [];
+      }
+      groups[firstLetter].push(category);
+    });
+    
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [categories]);
   
   return (
     <AddExpenseContainer>

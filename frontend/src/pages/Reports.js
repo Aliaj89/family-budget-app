@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 import { Line, Pie, Bar } from 'react-chartjs-2';
@@ -35,15 +35,11 @@ const Reports = () => {
   const [expenses, setExpenses] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
-  // Filter state
+  const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState('month'); // month, quarter, year, custom
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showCustomDateRange, setShowCustomDateRange] = useState(false);
-  
-  // Chart data
   const [spendingByCategory, setSpendingByCategory] = useState({
     labels: [],
     datasets: []
@@ -56,147 +52,68 @@ const Reports = () => {
     labels: [],
     datasets: []
   });
-  
-  // Summary stats
   const [totalSpent, setTotalSpent] = useState(0);
   const [avgPerDay, setAvgPerDay] = useState(0);
   const [topCategory, setTopCategory] = useState('');
   const [topCategoryAmount, setTopCategoryAmount] = useState(0);
-  
+
   useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        // Fetch expenses
+        const expensesResponse = await axios.get('/expenses');
+        setExpenses(expensesResponse.data);
+
+        // Fetch categories
+        const categoriesResponse = await axios.get('/categories');
+        setCategories(categoriesResponse.data);
+
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching report data:', err);
+        setError('Failed to load report data. Please try again.');
+        setLoading(false);
+      }
+    };
+
     fetchData();
   }, []);
-  
+
   useEffect(() => {
     if (expenses.length > 0 && categories.length > 0) {
       processData();
     }
   }, [expenses, categories, dateRange, customStartDate, customEndDate]);
-  
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch expenses
-      const expensesResponse = await axios.get('/expenses');
-      setExpenses(expensesResponse.data);
-      
-      // Fetch categories
-      const categoriesResponse = await axios.get('/categories');
-      setCategories(categoriesResponse.data);
-      
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load report data. Please try again.');
-      setLoading(false);
-    }
-  };
-  
-  const handleDateRangeChange = (range) => {
-    setDateRange(range);
-    setShowCustomDateRange(range === 'custom');
-    
-    // Set default custom date range if not already set
-    if (range === 'custom' && !customStartDate) {
-      const today = new Date();
-      const oneMonthAgo = new Date();
-      oneMonthAgo.setMonth(today.getMonth() - 1);
-      
-      setCustomStartDate(oneMonthAgo.toISOString().split('T')[0]);
-      setCustomEndDate(today.toISOString().split('T')[0]);
-    }
-  };
-  
-  const getDateRangeLabel = () => {
-    switch (dateRange) {
-      case 'month':
-        return 'Last 30 Days';
-      case 'quarter':
-        return 'Last 3 Months';
-      case 'year':
-        return 'Last 12 Months';
-      case 'custom':
-        return `${formatDate(customStartDate)} - ${formatDate(customEndDate)}`;
-      default:
-        return 'Last 30 Days';
-    }
-  };
-  
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
-  };
-  
-  const formatCurrency = (amount, currency = 'USD') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency
-    }).format(amount);
-  };
-  
-  const getFilteredExpenses = () => {
-    const now = new Date();
-    let startDate;
-    
-    if (dateRange === 'custom' && customStartDate && customEndDate) {
-      startDate = new Date(customStartDate);
-      const endDate = new Date(customEndDate);
-      endDate.setHours(23, 59, 59, 999); // End of day
-      
-      return expenses.filter(expense => {
-        const expenseDate = new Date(expense.date);
-        return expenseDate >= startDate && expenseDate <= endDate;
-      });
-    } else {
-      // Calculate start date based on selected range
-      if (dateRange === 'month') {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 30);
-      } else if (dateRange === 'quarter') {
-        startDate = new Date(now);
-        startDate.setMonth(now.getMonth() - 3);
-      } else if (dateRange === 'year') {
-        startDate = new Date(now);
-        startDate.setFullYear(now.getFullYear() - 1);
-      } else {
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - 30); // Default to month
-      }
-      
-      return expenses.filter(expense => new Date(expense.date) >= startDate);
-    }
-  };
-  
-  const processData = () => {
+
+  const processData = useCallback(() => {
     const filteredExpenses = getFilteredExpenses();
-    
+
     // Calculate total spent
     const total = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
     setTotalSpent(total);
-    
+
     // Calculate average per day
-    const startDate = dateRange === 'custom' ? new Date(customStartDate) : 
+    const startDate = dateRange === 'custom' ? new Date(customStartDate) :
                       dateRange === 'month' ? new Date(new Date().setDate(new Date().getDate() - 30)) :
                       dateRange === 'quarter' ? new Date(new Date().setMonth(new Date().getMonth() - 3)) :
                       new Date(new Date().setFullYear(new Date().getFullYear() - 1));
-                      
+
     const days = Math.max(1, Math.round((new Date() - startDate) / (1000 * 60 * 60 * 24)));
     setAvgPerDay(total / days);
-    
+
     // Process category data
     const categoryTotals = {};
     const categoryColors = {};
-    
+
     // Generate consistent colors for categories
     categories.forEach((category, index) => {
       const hue = (index * 137.5) % 360; // Golden angle approximation for better distribution
       categoryColors[category._id] = `hsl(${hue}, 70%, 60%)`;
     });
-    
+
     // Calculate spending by category
     filteredExpenses.forEach(expense => {
       const categoryId = expense.category?._id || 'uncategorized';
@@ -205,35 +122,35 @@ const Reports = () => {
       }
       categoryTotals[categoryId] += expense.amount;
     });
-    
+
     // Find top category
     let maxAmount = 0;
     let maxCategory = '';
-    
+
     Object.entries(categoryTotals).forEach(([categoryId, amount]) => {
       if (amount > maxAmount) {
         maxAmount = amount;
         maxCategory = categoryId;
       }
     });
-    
+
     // Set top category info
     const topCat = categories.find(c => c._id === maxCategory) || { name: 'Uncategorized' };
     setTopCategory(topCat.name);
     setTopCategoryAmount(maxAmount);
-    
+
     // Prepare data for pie chart
     const categoryLabels = [];
     const categoryData = [];
     const categoryBackgroundColors = [];
-    
+
     Object.entries(categoryTotals).forEach(([categoryId, amount]) => {
       const category = categories.find(c => c._id === categoryId) || { name: 'Uncategorized' };
       categoryLabels.push(category.name);
       categoryData.push(amount);
       categoryBackgroundColors.push(categoryColors[categoryId] || 'rgba(128, 128, 128, 0.6)');
     });
-    
+
     setSpendingByCategory({
       labels: categoryLabels,
       datasets: [
@@ -245,16 +162,16 @@ const Reports = () => {
         }
       ]
     });
-    
+
     // Process time series data
     const timeData = {};
     const startTimestamp = startDate.getTime();
     const now = new Date();
-    
+
     // Determine time intervals based on date range
     let interval;
     let format;
-    
+
     if (dateRange === 'month' || (dateRange === 'custom' && days <= 40)) {
       interval = 'day';
       format = { month: 'short', day: 'numeric' };
@@ -265,11 +182,11 @@ const Reports = () => {
       interval = 'month';
       format = { month: 'short', year: 'numeric' };
     }
-    
+
     // Create time intervals
     const intervals = [];
     const intervalLabels = [];
-    
+
     if (interval === 'day') {
       for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
         const dateKey = d.toISOString().split('T')[0];
@@ -292,12 +209,12 @@ const Reports = () => {
         timeData[dateKey] = 0;
       }
     }
-    
+
     // Aggregate expenses by time interval
     filteredExpenses.forEach(expense => {
       const expenseDate = new Date(expense.date);
       let dateKey;
-      
+
       if (interval === 'day') {
         dateKey = expenseDate.toISOString().split('T')[0];
       } else if (interval === 'week') {
@@ -311,15 +228,15 @@ const Reports = () => {
       } else {
         dateKey = `${expenseDate.getFullYear()}-${String(expenseDate.getMonth() + 1).padStart(2, '0')}`;
       }
-      
+
       if (timeData[dateKey] !== undefined) {
         timeData[dateKey] += expense.amount;
       }
     });
-    
+
     // Prepare line chart data
     const timeSeriesData = intervals.map(interval => timeData[interval] || 0);
-    
+
     setSpendingOverTime({
       labels: intervalLabels,
       datasets: [
@@ -335,46 +252,46 @@ const Reports = () => {
         }
       ]
     });
-    
+
     // Prepare monthly comparison data (for the last 6 months)
     const last6Months = [];
     const monthlyData = [];
     const monthlyAvg = [];
-    
+
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
-    
+
     for (let i = 5; i >= 0; i--) {
       const month = (currentMonth - i + 12) % 12;
       const year = currentYear - Math.floor((i - currentMonth) / 12);
-      
+
       const monthName = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(new Date(year, month, 1));
       const monthLabel = `${monthName} ${year}`;
-      
+
       last6Months.push(monthLabel);
-      
+
       const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
       const monthTotal = timeData[monthKey] || 0;
       monthlyData.push(monthTotal);
-      
+
       // Calculate average spending for this month over previous years (if data available)
       let avgCount = 0;
       let avgTotal = 0;
-      
+
       for (let y = year - 1; y >= year - 2; y--) {
         const pastMonthKey = `${y}-${String(month + 1).padStart(2, '0')}`;
         const pastMonthTotal = timeData[pastMonthKey];
-        
+
         if (pastMonthTotal !== undefined) {
           avgTotal += pastMonthTotal;
           avgCount++;
         }
       }
-      
+
       const avgValue = avgCount > 0 ? avgTotal / avgCount : null;
       monthlyAvg.push(avgValue);
     }
-    
+
     setMonthlyComparison({
       labels: last6Months,
       datasets: [
@@ -394,37 +311,116 @@ const Reports = () => {
         }
       ]
     });
+  }, [dateRange, customStartDate, customEndDate]);
+
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
+    setShowCustomDateRange(range === 'custom');
+
+    // Set default custom date range if not already set
+    if (range === 'custom' && !customStartDate) {
+      const today = new Date();
+      const oneMonthAgo = new Date();
+      oneMonthAgo.setMonth(today.getMonth() - 1);
+
+      setCustomStartDate(oneMonthAgo.toISOString().split('T')[0]);
+      setCustomEndDate(today.toISOString().split('T')[0]);
+    }
   };
-  
+
+  const getDateRangeLabel = () => {
+    switch (dateRange) {
+      case 'month':
+        return 'Last 30 Days';
+      case 'quarter':
+        return 'Last 3 Months';
+      case 'year':
+        return 'Last 12 Months';
+      case 'custom':
+        return `${formatDate(customStartDate)} - ${formatDate(customEndDate)}`;
+      default:
+        return 'Last 30 Days';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(date);
+  };
+
+  const formatCurrency = (amount, currency = 'USD') => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
+    }).format(amount);
+  };
+
+  const getFilteredExpenses = () => {
+    const now = new Date();
+    let startDate;
+
+    if (dateRange === 'custom' && customStartDate && customEndDate) {
+      startDate = new Date(customStartDate);
+      const endDate = new Date(customEndDate);
+      endDate.setHours(23, 59, 59, 999); // End of day
+
+      return expenses.filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate >= startDate && expenseDate <= endDate;
+      });
+    } else {
+      // Calculate start date based on selected range
+      if (dateRange === 'month') {
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30);
+      } else if (dateRange === 'quarter') {
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 3);
+      } else if (dateRange === 'year') {
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 1);
+      } else {
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30); // Default to month
+      }
+
+      return expenses.filter(expense => new Date(expense.date) >= startDate);
+    }
+  };
+
   const handleExportData = () => {
     const filteredExpenses = getFilteredExpenses();
-    
+
     // Create CSV content
     let csvContent = "Date,Amount,Category,Description\n";
-    
+
     filteredExpenses.forEach(expense => {
       const date = new Date(expense.date).toLocaleDateString();
       const amount = expense.amount;
       const category = expense.category?.name || 'Uncategorized';
       const description = expense.description ? `"${expense.description.replace(/"/g, '""')}"` : '';
-      
+
       csvContent += `${date},${amount},${category},${description}\n`;
     });
-    
+
     // Create download link
     const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
     link.setAttribute('download', `expense_report_${dateRange}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
-    
+
     // Download file
     link.click();
-    
+
     // Clean up
     document.body.removeChild(link);
   };
-  
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -438,7 +434,7 @@ const Reports = () => {
       }
     }
   };
-  
+
   if (loading) {
     return (
       <LoadingWrapper>

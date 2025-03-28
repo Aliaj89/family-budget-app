@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
-import { FiEdit, FiTrash2, FiPlus, FiFolder, FiFolderPlus } from 'react-icons/fi';
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
+import { useAuth } from '../context/AuthContext';
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
