@@ -15,9 +15,6 @@ import Login from './pages/Login';
 import Navigation from './components/Navigation';
 import PrivateRoute from './components/PrivateRoute';
 
-// Context
-import { AuthProvider } from './context/AuthContext';
-
 // Configure axios defaults
 import axios from 'axios';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
